@@ -126,7 +126,6 @@ tape('filter subheader and tab', function (test) {
 			1,
 			'should add blue pill'
 		)
-
 		const itemCountTd = tds._groups[0][7]
 		test.equal(itemCountTd.innerText, '1', 'should indicate a filter item count of 1')
 

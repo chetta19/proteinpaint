@@ -39,8 +39,8 @@ class profileRadar extends profilePlot {
 		const config = this.config
 		this.dom.plotDiv.selectAll('*').remove()
 		if (this.data.lst.length == 0) return
-		const width = this.settings.comparison ? 900 : 1400
-		const height = 900
+		const width = 1400
+		const height = 800
 		this.svg = this.dom.plotDiv
 			.append('div')
 			.style('display', 'inline-block')
@@ -63,11 +63,11 @@ class profileRadar extends profilePlot {
 		// Create a polar grid.
 		const radius = this.radius
 		const x = 370
-		const y = 290
+		const y = 340
 		if (!this.settings.comparison)
 			this.svg
 				.append('text')
-				.attr('transform', `translate(40, ${y + 340})`)
+				.attr('transform', `translate(40, ${40})`)
 				.attr('font-weight', 'bold')
 				.attr('font-size', '0.9rem')
 				.text(config[config.plot].title)
@@ -75,9 +75,7 @@ class profileRadar extends profilePlot {
 		const polarG = this.svg.append('g').attr('transform', `translate(${x},${y})`)
 		this.polarG = polarG
 		this.legendG = this.svg.append('g').attr('transform', `translate(${x + 400},${y + 180})`)
-		this.filterG = this.svg
-			.append('g')
-			.attr('transform', `translate(${this.settings.comparison ? 150 : 40},${y + 370})`)
+		this.filterG = this.svg.append('g').attr('transform', `translate(${40},${y + 340})`)
 
 		for (let i = 0; i <= 10; i++) this.addPoligon(i * 10)
 
@@ -86,8 +84,8 @@ class profileRadar extends profilePlot {
 			data2 = [] //term2
 		for (let { module, term1, term2 } of this.terms) {
 			const iangle = i * this.angle - Math.PI / 2
-			this.addData('term1', iangle, i, data)
 			this.addData('term2', iangle, i, data2)
+			this.addData('term1', iangle, i, data)
 			const color = term1.score.term.color
 			rows.push([
 				{ color, disabled: true },

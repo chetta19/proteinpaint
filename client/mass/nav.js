@@ -4,6 +4,7 @@ import { searchInit } from './search'
 import { chartsInit } from './charts'
 import { groupsInit } from './groups'
 import { sessionBtnInit } from './sessionBtn'
+import { aboutInit } from './about.ts'
 import { select } from 'd3-selection'
 import { dofetch3 } from '#common/dofetch'
 import { Menu } from '#dom/menu'
@@ -31,7 +32,6 @@ headtip.d.style('z-index', 5555)
 // headtip must get a crazy high z-index so it can stay on top of all, no matter if server config has base_zindex or not
 
 // data elements for navigation header tabs
-const cohortTab = { top: 'COHORT', mid: 'NONE', btm: '', subheader: 'cohort' }
 const chartTab = { top: 'CHARTS', mid: 'NONE', btm: '', subheader: 'charts' }
 const groupsTab = { top: 'GROUPS', mid: 'NONE', btm: '', subheader: 'groups' }
 const filterTab = { top: 'FILTER', mid: 'NONE', btm: '', subheader: 'filter' }
@@ -105,7 +105,14 @@ class TdbNav {
 					button: this.dom.saveBtn,
 					massSessionDuration: this.opts.massSessionDuration,
 					sessionDaysLeft: this.app.opts.sessionDaysLeft || null
-				})
+				}),
+				about: appState.termdbConfig.about
+					? aboutInit({
+							app: this.app,
+							holder: this.dom.subheader.about,
+							features: appState.termdbConfig.about
+					  })
+					: []
 			})
 			this.mayShowMessage_sessionDaysLeft()
 		} catch (e) {
@@ -138,6 +145,10 @@ class TdbNav {
 	}
 
 	async main() {
+		if (this.state.termdbConfig.selectCohort && this.state.termdbConfig.about) {
+			console.error('Cohort(s) and an About tab are defined. Only one can be used.')
+			return
+		}
 		this.dom.tabDiv.style('display', this.state.nav.header_mode === 'with_tabs' ? 'inline-block' : 'none')
 		this.dom.tip.hide()
 		this.activeTab = this.state.nav.activeTab
@@ -153,6 +164,9 @@ class TdbNav {
 		this.filterJSON = JSON.stringify(this.state.filter)
 
 		this.cohortsData = await this.app.vocabApi.getCohortsData()
+
+		/** Custom config to show an ABOUT tab */
+		if (this.state.termdbConfig.about) this.about = this.state.termdbConfig.about
 
 		if (this.state.nav.header_mode === 'with_tabs') {
 			if (!(this.activeCohortName in this.samplecounts)) {
@@ -253,16 +267,34 @@ function setRenderers(self) {
 			search: self.dom.subheaderDiv.append('div').style('display', 'none'),
 			groups: self.dom.subheaderDiv.append('div').style('display', 'none'),
 			charts: self.dom.subheaderDiv.append('div').style('display', 'none'),
-			cohort: self.dom.subheaderDiv.append('div').style('display', 'none'),
 			filter: self.dom.subheaderDiv.append('div').style('display', 'none'),
 			cart: self.dom.subheaderDiv
 				.append('div')
 				.style('display', 'none')
-				.html('<br/>Cart feature under construction - work in progress<br/>&nbsp;<br/>')
+				.html('<br/>Cart feature under construction - work in progress<br/>&nbsp;<br/>'),
+			// For either the COHORT or ABOUT tab
+			about: self.dom.subheaderDiv.append('div').style('display', 'none').attr('data-testid', 'sjpp-mass-about')
 		})
 
 		self.tabs = [chartTab, groupsTab, filterTab /*, cartTab*/]
-		if (appState.termdbConfig.selectCohort) self.tabs.unshift(cohortTab) // dataset has "sub-cohorts", show the Cohort tab at the beginning
+		/** Adds either the COHORT or ABOUT tab
+		 * COHORT is added over ABOUT if both are defined
+		 */
+		if (appState.termdbConfig?.selectCohort || appState.termdbConfig?.about) {
+			const aboutTab = appState.termdbConfig?.about?.tab || {}
+			const topLabel = appState.termdbConfig.selectCohort ? 'COHORT' : aboutTab.topLabel || ''
+			const midLabel = aboutTab.midLabel || (aboutTab ? 'ABOUT' : '')
+			const btmLabel = aboutTab.btmLabel || ''
+
+			const tab = {
+				top: topLabel.toUpperCase(),
+				mid: midLabel.toUpperCase(),
+				btm: btmLabel,
+				subheader: 'about'
+			}
+			const tabIdx = appState.termdbConfig?.selectCohort ? 0 : aboutTab.order || 0
+			self.tabs.splice(tabIdx, 0, tab)
+		}
 
 		const table = self.dom.tabDiv.append('table').style('border-collapse', 'collapse')
 
@@ -282,7 +314,7 @@ function setRenderers(self) {
 			)
 			.enter()
 			.append('td')
-			// hide the cohort tab until there is termdbConfig.selectCohort
+			// hide the about (e.g. cohort tab) until there is termdbConfig.selectCohort or termdbCongif.about
 			.style('display', 'none') // d => (d.colNum === 0 || self.activeCohort !== -1 ? '' : 'none'))
 			.style('width', '100px')
 			.style('padding', d => (d.rowNum === 0 ? '12px 12px 3px 12px' : '3px 12px'))
@@ -292,7 +324,13 @@ function setRenderers(self) {
 			.style('color', '#aaa')
 			.style('cursor', 'pointer')
 			.html(d => d.label)
-			.on('click', self.setTab)
+			.on('click', (event, d) => {
+				self.setTab(event, d)
+				if (d.colNum === self.activeTab) {
+					/** If tab is already selected, change background color */
+					self.dom.tds.style('background-color', 'transparent')
+				}
+			})
 
 		self.dom.trs = table.selectAll('tr')
 		self.dom.tds = table.selectAll('td')
@@ -395,15 +433,23 @@ function setRenderers(self) {
 					const n = self.state.plots.length
 					if (d.key == 'mid') return !n ? 'NONE' : n
 					else return ''
-				} else if (d.subheader === 'cohort') {
+				} else if (d.subheader === 'about') {
 					if (self.activeCohortName && self.activeCohortName in self.samplecounts) {
-						return d.key == 'top'
-							? this.innerHTML
-							: d.key == 'mid'
-							? self.activeCohortLabel
-							: self.samplecounts[self.activeCohortName]
+						const aboutMap = {
+							top: this.innerHTML,
+							mid: self.activeCohortLabel,
+							btm: self.samplecounts[self.activeCohortName]
+						}
+						return aboutMap[d.key] || ''
+					} else if (self.about) {
+						const aboutMap = {
+							top: self.about?.tab?.topLabel ? self.about.tab.topLabel.toUpperCase() : this.innerHTML,
+							mid: self.about?.tab?.midLabel ? self.about.tab.midLabel.toUpperCase() : 'ABOUT',
+							btm: self.about?.tab?.btmLabel || this.innerHTML
+						}
+						return aboutMap[d.key] || ''
 					} else {
-						return d.key == 'mid' ? 'NONE' : this.innerHTML // d.key == 'mid' ? '<span style="font-size: 16px; color: red">SELECT<br/>BELOW</span>' : ''
+						return d.key === 'mid' ? 'NONE' : this.innerHTML
 					}
 				} else if (d.subheader === 'filter') {
 					const filter = self.filterUiRoot ? self.filterUiRoot : { lst: [] }
@@ -479,21 +525,18 @@ function setRenderers(self) {
 		self.cohortNames = selectCohort.values.map(d => d.keys.slice().sort().join(','))
 
 		if (selectCohort.title) {
-			self.dom.cohortTitle = self.dom.subheader.cohort
-				.append('h2')
-				.style('margin-left', '10px')
-				.text(selectCohort.title)
+			self.dom.cohortTitle = self.dom.subheader.about.append('h2').style('margin-left', '10px').text(selectCohort.title)
 		}
 
 		if (selectCohort.description) {
-			self.dom.cohortDescription = self.dom.subheader.cohort
+			self.dom.cohortDescription = self.dom.subheader.about
 				.append('div')
 				.style('margin-left', '10px')
 				.html(selectCohort.description)
 		}
 
 		if (selectCohort.prompt) {
-			self.dom.cohortPrompt = self.dom.subheader.cohort
+			self.dom.cohortPrompt = self.dom.subheader.about
 				.append('div')
 				.style('margin-left', '10px')
 				.style('padding-top', '30px')
@@ -502,7 +545,7 @@ function setRenderers(self) {
 				.text(selectCohort.prompt)
 		}
 
-		self.dom.cohortOpts = self.dom.subheader.cohort
+		self.dom.cohortOpts = self.dom.subheader.about
 			.append('div')
 			.style('margin-bottom', '30px')
 			.style('margin-left', '10px')
@@ -546,10 +589,10 @@ function setRenderers(self) {
 			})
 
 		self.dom.cohortInputs = self.dom.cohortOpts.selectAll('input')
-		self.dom.cohortTable = self.dom.subheader.cohort.append('div')
+		self.dom.cohortTable = self.dom.subheader.about.append('div')
 
 		if (selectCohort.asterisk) {
-			self.dom.cohortAsterisk = self.dom.subheader.cohort
+			self.dom.cohortAsterisk = self.dom.subheader.about
 				.append('div')
 				.style('margin-left', '10px')
 				.style('padding-top', '20px')
@@ -573,7 +616,8 @@ function setInteractivity(self) {
 		self.activeTab = d.colNum
 		self.searching = false
 		self.app.dispatch({ type: 'tab_set', activeTab: self.activeTab })
-		if (self.activeTab == 1 && self.activeCohort != -1 && !self.state.plots.length) {
+		const chartsIdx = self.subheaderKeys.indexOf('charts')
+		if (self.activeTab == chartsIdx && self.activeCohort != -1 && !self.state.plots.length) {
 			// show dictionary in charts tab if no other
 			// plots have been created
 			self.app.dispatch({

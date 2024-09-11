@@ -15,6 +15,7 @@ import wsiViewerDefaults from '#plots/wsiviewer/defaults.ts'
 import { GetWSImagesRequest, GetWSImagesResponse } from '../../shared/types/routes/wsimages.ts'
 import wsiViewerImageFiles from './wsimagesloaded.ts'
 import { WSImage } from '../../../server/shared/types/routes/samplewsimages.ts'
+import { table2col } from '#dom/table2col'
 
 export default class WSIViewer {
 	// following attributes are required by rx
@@ -84,6 +85,8 @@ export default class WSIViewer {
 				`${state.sample_id} <span style="font-size:.8em">${state.termdbConfig.queries.WSImages.type} images</span>`
 			)
 		}
+
+		this.renderMetadata(holder, layers, settings)
 	}
 
 	private generateThumbnails(layers: Array<TileLayer<Zoomify>>, setting: Settings) {
@@ -109,6 +112,7 @@ export default class WSIViewer {
 					.style('height', setting.thumbnailHeight)
 					.style('margin-right', '10px')
 					.style('display', 'flex')
+					.style('height', 'auto')
 					.style('align-items', 'center')
 					.style('justify-content', 'center')
 					.style('border', isActive ? setting.activeThumbnailBorderStyle : setting.nonActiveThumbnailBorderStyle)
@@ -116,14 +120,12 @@ export default class WSIViewer {
 						this.wsiViewerInteractions.thumbnailClickListener(i)
 					})
 
-				// TODO plot metadata
-
 				thumbnail
 					.append('img')
 					.attr('src', layers[i].get('preview'))
 					.attr('alt', `Thumbnail ${i}`)
 					.style('max-width', '100%')
-					.style('height', 'auto')
+					.style('height', '60px')
 					.style('object-fit', 'cover')
 			}
 		} else {
@@ -195,6 +197,7 @@ export default class WSIViewer {
 			const options = {
 				// title: "Set Title",
 				preview: `/tileserver/layer/slide/${data.sessionId}/zoomify/TileGroup0/0-0-0@1x.jpg`,
+				metadata: wsimages[i].metadata,
 				source: source,
 				baseLayer: true
 			}
@@ -204,6 +207,23 @@ export default class WSIViewer {
 			layers.push(layer)
 		}
 		return layers
+	}
+
+	private renderMetadata(holder: any, layers: Array<TileLayer<Zoomify>>, settings: Settings) {
+		holder.select('div[id="metadata"]').remove()
+		const holderDiv = holder.append('div').attr('id', 'metadata')
+
+		const table = table2col({ holder: holderDiv })
+		const metadata = layers[settings.displayedImageIndex].get('metadata')
+
+		if (metadata) {
+			// Create table rows for each key-value pair
+			Object.entries(JSON.parse(metadata)).forEach(([key, value]) => {
+				const [c1, c2] = table.addRow()
+				c1.html(key)
+				c2.html(value)
+			})
+		}
 	}
 }
 

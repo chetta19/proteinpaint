@@ -110,6 +110,15 @@ export default {
 				}
 			},
 			termid2totalsize2: {}
+			// about: {
+			// 	tab: {
+			// 		order: 4,
+			// 		topLabel: 'test',
+			// 		midLabel: 'test about',
+			// 		btmLabel: 'test'
+			// 	},
+			// 	html: 'Test'
+			// }
 		},
 		scatterplots: {
 			plots: [

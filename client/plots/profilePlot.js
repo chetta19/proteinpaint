@@ -45,9 +45,9 @@ export class profilePlot {
 		const leftDiv = div.append('div').style('display', 'inline-block').style('vertical-align', 'top')
 
 		const mainDiv = div.append('div').style('display', 'inline-block').style('vertical-align', 'top')
-		const holder2 = this.opts.holder.append('div').style('display', 'inline-block')
+		const holder2 = this.opts.holder.append('div')
 
-		const controlsDiv = leftDiv.append('div').style('display', 'inline-block').style('font-size', '0.8em')
+		const controlsDiv = leftDiv.append('div').style('display', 'inline-block').style('font-size', '0.9em')
 		const iconsDiv = leftDiv.append('div').style('margin-left', '16px').style('margin-top', '8px')
 
 		const holder = mainDiv.insert('div').style('display', 'inline-block')
@@ -88,20 +88,14 @@ export class profilePlot {
 
 			compareBt.on('click', async event => {
 				const comparison = (this.settings.comparison = !this.settings.comparison)
-				this.settings.showTable = !comparison
 				compareBt.style('background-color', comparison ? 'rgb(207, 226, 243)' : 'transparent')
-				await this.app.dispatch({
-					type: 'plot_edit',
-					id: this.id,
-					config: { settings: { [this.type]: this.settings } }
-				})
 
 				this.dom.holder2.selectAll('*').remove()
 				if (comparison) await this.comparePlots()
 			})
 		}
 		if (this.type != 'profileBarchart') {
-			const tableIconDiv = iconsDiv.append('div')
+			const tableIconDiv = iconsDiv.append('div').style('padding-bottom', '15px')
 			this.dom.tableBt = tableIconDiv
 				.append('button')
 				.style('border', 'none')
@@ -113,7 +107,7 @@ export class profilePlot {
 				this.showTable(show)
 			})
 		}
-		icon_functions['restart'](iconsDiv.append('div').style('padding', '15px 5px'), {
+		icon_functions['restart'](iconsDiv.append('div').style('padding', '0px 5px 15px 5px'), {
 			title: 'Clear filters',
 			handler: async () => {
 				this.clearFiltersExcept([])
@@ -177,7 +171,7 @@ export class profilePlot {
 		this.plotAdded = true
 		const appState = this.state
 		const plotMod = await import('#plots/plot.app.js')
-		const plot = { chartType: this.type, settings: { [this.type]: { comparison: true, showTable: false } } }
+		const plot = { chartType: this.type, settings: { [this.type]: { comparison: true } } }
 
 		if (this.type == 'profileRadar' || this.type == 'profileRadarFacility') plot.plot = this.config.plot
 		const opts = { holder: this.dom.holder2, state: { plots: [plot], vocab: appState.vocab } }
