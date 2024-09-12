@@ -145,7 +145,7 @@ fn read_hdf5(hdf5_filename: String, gene_name: String) -> Result<()> {
         //let item_json = format!("{{\"{}\"}}", samples[i].to_string());
 
         output_string += &format!(
-            "{{\"{}\",{}}}",
+            "{{\"{}\":{}}}",
             samples[i].to_string(),
             gene_array[i].to_string()
         );
